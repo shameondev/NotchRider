@@ -1,23 +1,37 @@
-import { useState } from 'react'
-import './App.css'
-
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <div className="app">
-      <h1>NotchRider</h1>
-      <p>A minimalist cycling game for your menu bar</p>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
+    <div style={{
+      width: '100%',
+      height: '148px',
+      background: 'var(--bg-primary)',
+      display: 'flex',
+      flexDirection: 'column',
+    }}>
+      {/* Upper row: 74px - road with notch */}
+      <div style={{
+        height: '74px',
+        background: 'var(--bg-secondary)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'var(--text-primary)',
+      }}>
+        Upper Road (74px)
+      </div>
+
+      {/* Lower row: 74px - road under notch + HUD */}
+      <div style={{
+        height: '74px',
+        background: 'var(--bg-primary)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'var(--text-secondary)',
+      }}>
+        Lower Road + HUD (74px)
       </div>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
