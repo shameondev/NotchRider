@@ -3,22 +3,16 @@ import { render, screen } from '@testing-library/react';
 import { Road } from './Road';
 
 describe('Road', () => {
-  it('renders road with notch gap', () => {
-    render(<Road notchWidth={200} notchX={860} />);
-
+  it('renders road', () => {
+    render(<Road roadY={32} />);
     const road = screen.getByTestId('road');
     expect(road).toBeInTheDocument();
   });
 
-  it('renders left and right road segments', () => {
-    render(<Road notchWidth={200} notchX={860} />);
-
-    expect(screen.getByTestId('road-left')).toBeInTheDocument();
-    expect(screen.getByTestId('road-right')).toBeInTheDocument();
-  });
-
-  it('renders under-notch road segment', () => {
-    render(<Road notchWidth={200} notchX={860} />);
-    expect(screen.getByTestId('road-under-notch')).toBeInTheDocument();
+  it('renders two lanes', () => {
+    render(<Road roadY={32} laneGap={10} />);
+    const road = screen.getByTestId('road');
+    // Road contains the lane lines
+    expect(road.textContent).toContain('─');
   });
 });

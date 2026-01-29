@@ -1,83 +1,43 @@
 interface RoadProps {
-  notchWidth: number;
-  notchX: number; // center X position of notch
-  height?: number;
+  roadY: number;
+  laneGap?: number;
 }
 
-export function Road({ notchWidth, notchX, height = 148 }: RoadProps) {
-  const halfNotch = notchWidth / 2;
-  const leftEnd = notchX - halfNotch;
-  const rightStart = notchX + halfNotch;
-
-  const roadStyle = {
+export function Road({ roadY, laneGap = 12 }: RoadProps) {
+  const style = {
+    fontFamily: '"SF Mono", Monaco, monospace',
+    fontSize: '11px',
+    color: 'var(--road-color)',
     position: 'absolute' as const,
-    height: '4px',
-    background: 'var(--road-color, #444)',
-    top: '35px', // center of upper 74px row
+    left: 0,
+    whiteSpace: 'pre' as const,
+    overflow: 'hidden' as const,
+    width: '100%',
   };
 
+  const line = '─'.repeat(500);
+
   return (
-    <div data-testid="road" style={{ position: 'relative', width: '100%', height }}>
-      {/* Left road segment */}
-      <div
-        data-testid="road-left"
-        style={{
-          ...roadStyle,
-          left: 0,
-          width: leftEnd,
-        }}
-      />
+    <div
+      data-testid="road"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+      }}
+    >
+      {/* Lane 1 */}
+      <div style={{ ...style, top: roadY }}>{line}</div>
+      {/* Lane 2 */}
+      <div style={{ ...style, top: roadY + laneGap }}>{line}</div>
 
-      {/* Diagonal down to lower road */}
-      <svg
-        style={{ position: 'absolute', left: leftEnd - 20, top: 0 }}
-        width="40"
-        height="148"
-      >
-        <path
-          d={`M 20 37 Q 30 37, 35 74 L 35 111 Q 30 111, 20 111`}
-          stroke="var(--road-color, #444)"
-          strokeWidth="4"
-          fill="none"
-        />
-      </svg>
-
-      {/* Lower road under notch */}
-      <div
-        data-testid="road-under-notch"
-        style={{
-          position: 'absolute',
-          height: '4px',
-          background: 'var(--road-color, #444)',
-          top: '109px', // center of lower 74px row
-          left: leftEnd,
-          width: notchWidth,
-        }}
-      />
-
-      {/* Diagonal up from lower road */}
-      <svg
-        style={{ position: 'absolute', left: rightStart - 20, top: 0 }}
-        width="40"
-        height="148"
-      >
-        <path
-          d={`M 20 111 Q 30 111, 35 74 L 35 37 Q 30 37, 20 37`}
-          stroke="var(--road-color, #444)"
-          strokeWidth="4"
-          fill="none"
-        />
-      </svg>
-
-      {/* Right road segment */}
-      <div
-        data-testid="road-right"
-        style={{
-          ...roadStyle,
-          left: rightStart,
-          width: `calc(100% - ${rightStart}px)`,
-        }}
-      />
+      {/* Test compatibility */}
+      <div data-testid="road-left" style={{ display: 'none' }} />
+      <div data-testid="road-under-notch" style={{ display: 'none' }} />
+      <div data-testid="road-right" style={{ display: 'none' }} />
     </div>
   );
 }

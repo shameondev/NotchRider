@@ -1,122 +1,198 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { Road } from './components/Road';
 import { Cyclist } from './components/Cyclist';
-import { HUD } from './components/HUD';
-import { StreakDisplay } from './components/StreakDisplay';
-import { getRoadY } from './hooks/useRoadPosition';
-import { calculateDrift } from './hooks/useZoneDrift';
 import { useTrainer } from './hooks/useTrainer';
-import { useStreak } from './hooks/useStreak';
-import type { TrainerData, TargetZone } from './types/trainer';
+
+const APP_HEIGHT = 74;
+const NOTCH_WIDTH = 200;
+const TOP_HEIGHT = 37;
+const ROAD_HEIGHT = 37;
+const PIXELS_PER_KMH = 5;
+const HOVER_OFFSET = 65; // px to move down on hover
 
 function App() {
   const screenWidth = window.innerWidth;
-  const notchWidth = 200;
-  const notchX = screenWidth / 2;
+  const cyclistRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const positionRef = useRef(50);
+  const lastTimeRef = useRef(0);
+  const animationRef = useRef<number>(0);
+  const isVisibleRef = useRef(true);
+  const isHoveredRef = useRef(false);
 
-  const [cyclistX, setCyclistX] = useState(100);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [distance, setDistance] = useState(0);
+  // Real trainer data from ANT+ or simulation
+  const { data: trainerData, isConnected, isSimulation } = useTrainer();
 
-  const { data: trainerData, isConnected, findDevice } = useTrainer();
-  const prevDistanceRef = useRef(0);
-  const { streak, update: updateStreak } = useStreak();
+  const isMoving = trainerData.power > 0 || trainerData.cadence > 0;
 
-  const targetZone: TargetZone = {
-    min: 140,
-    max: 160,
-    metric: 'power',
-  };
+  // Smooth window animation
+  const windowYRef = useRef(0);
+  const targetYRef = useRef(0);
+  const windowAnimRef = useRef<number>(0);
+  const leaveTimeoutRef = useRef<number>(0);
 
-  // Try to find ANT+ device on mount
   useEffect(() => {
-    findDevice();
-  }, [findDevice]);
+    const animateWindow = () => {
+      const current = windowYRef.current;
+      const target = targetYRef.current;
+      const diff = target - current;
 
-  // Simulated power for when not connected
-  const [simulatedPower, setSimulatedPower] = useState(150);
-  useEffect(() => {
-    if (!isConnected) {
-      const interval = setInterval(() => {
-        setSimulatedPower(130 + Math.floor(Math.random() * 50));
-      }, 500);
-      return () => clearInterval(interval);
+      if (Math.abs(diff) > 0.5) {
+        // Ease towards target (0.15 = smoothness factor)
+        windowYRef.current += diff * 0.15;
+        invoke('set_window_y', { y: Math.round(windowYRef.current) }).catch(() => {});
+      }
+
+      windowAnimRef.current = requestAnimationFrame(animateWindow);
+    };
+
+    windowAnimRef.current = requestAnimationFrame(animateWindow);
+    return () => cancelAnimationFrame(windowAnimRef.current);
+  }, []);
+
+  // Handle hover - move window down to reveal status bar
+  const handleMouseEnter = useCallback(() => {
+    // Cancel any pending return
+    if (leaveTimeoutRef.current) {
+      clearTimeout(leaveTimeoutRef.current);
+      leaveTimeoutRef.current = 0;
     }
-  }, [isConnected]);
+    isHoveredRef.current = true;
+    targetYRef.current = HOVER_OFFSET;
+  }, []);
 
-  const currentPower = isConnected ? trainerData.power : simulatedPower;
-  const drift = calculateDrift(currentPower, targetZone);
+  const handleMouseLeave = useCallback(() => {
+    // Delay before returning to prevent flickering
+    leaveTimeoutRef.current = window.setTimeout(() => {
+      isHoveredRef.current = false;
+      targetYRef.current = 0;
+    }, 200); // 200ms delay
+  }, []);
 
-  // Animation loop
+  // Pause when tab not visible (battery optimization)
   useEffect(() => {
-    const startTime = Date.now();
-    const interval = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      setElapsedTime(elapsed);
+    const handleVisibility = () => {
+      isVisibleRef.current = document.visibilityState === 'visible';
+      if (isVisibleRef.current) {
+        lastTimeRef.current = 0; // Reset to avoid big delta jump
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
 
-      // Move cyclist based on speed (or simulated if not connected)
-      const speed = isConnected ? trainerData.speed : 30;
-      setCyclistX(x => {
-        const pixelsPerSecond = speed * 2; // scale for visibility
-        const newX = x + pixelsPerSecond / 60;
-        return newX > screenWidth ? 0 : newX;
-      });
-
-      // Accumulate distance
-      setDistance(d => d + (speed / 3.6) / 60); // m/s / 60fps
-    }, 1000 / 60);
-
-    return () => clearInterval(interval);
-  }, [screenWidth, isConnected, trainerData.speed]);
-
-  // Update streak based on drift state
+  // GPU-accelerated animation with requestAnimationFrame
   useEffect(() => {
-    const distanceDelta = distance - prevDistanceRef.current;
-    if (distanceDelta > 0) {
-      updateStreak(drift.state, distanceDelta);
-    }
-    prevDistanceRef.current = distance;
-  }, [distance, drift.state, updateStreak]);
+    let frameSkipCounter = 0;
 
-  const displayData: TrainerData = {
-    ...trainerData,
-    power: currentPower,
-    distance,
-    elapsedTime,
-    grade: 0,
-  };
+    const animate = (timestamp: number) => {
+      // Skip if not visible (battery saver)
+      if (!isVisibleRef.current) {
+        animationRef.current = requestAnimationFrame(animate);
+        return;
+      }
 
-  const cyclistY = getRoadY(cyclistX, notchX, notchWidth);
+      // Throttle to 30fps when hovered (less important, save CPU)
+      if (isHoveredRef.current) {
+        frameSkipCounter++;
+        if (frameSkipCounter < 2) {
+          animationRef.current = requestAnimationFrame(animate);
+          return;
+        }
+        frameSkipCounter = 0;
+      }
+
+      if (!lastTimeRef.current) lastTimeRef.current = timestamp;
+      const delta = (timestamp - lastTimeRef.current) / 1000;
+      lastTimeRef.current = timestamp;
+
+      // Cap delta to avoid jumps after pause
+      const cappedDelta = Math.min(delta, 0.1);
+
+      // Update position directly via transform (GPU)
+      const speed = trainerData.speed || 0;
+      if (speed > 0) {
+        positionRef.current += speed * PIXELS_PER_KMH * cappedDelta;
+        if (positionRef.current > screenWidth) {
+          positionRef.current = 0;
+        }
+      }
+
+      if (cyclistRef.current) {
+        cyclistRef.current.style.transform =
+          `translateX(${positionRef.current}px) translateY(-50%)`;
+      }
+
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationRef.current);
+  }, [screenWidth]);
 
   return (
-    <div style={{
-      width: '100%',
-      height: '148px',
-      background: 'var(--bg-primary)',
-      position: 'relative',
-    }}>
-      <Road notchWidth={notchWidth} notchX={notchX} />
-      <Cyclist
-        x={cyclistX}
-        y={cyclistY}
-        driftOffset={drift.offset}
-        driftState={drift.state}
-      />
-      <HUD data={displayData} targetZone={targetZone} />
-      <StreakDisplay streak={streak} />
-
-      {/* Connection status */}
-      <div style={{
-        position: 'absolute',
-        top: '5px',
-        right: '10px',
-        fontSize: '10px',
-        opacity: 0.5,
+    <div
+      ref={containerRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      style={{
+        width: '100%',
+        height: APP_HEIGHT,
+        display: 'grid',
+        gridTemplateColumns: `1fr ${NOTCH_WIDTH}px 1fr`,
+        gridTemplateRows: `${TOP_HEIGHT}px ${ROAD_HEIGHT}px`,
+        background: 'var(--bg-primary)',
+        fontFamily: '"SF Mono", Monaco, monospace',
+        fontSize: '11px',
       }}>
-        {isConnected ? '🟢 ANT+' : '🔴 Sim'}
+      {/* === TOP LEFT: Data === */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        padding: '0 15px',
+        gap: '12px',
+      }}>
+        <span>♥ {trainerData.heartRate || '--'}</span>
+        <span>⚡ {trainerData.power}W</span>
+        <span style={{ opacity: 0.6 }}>{trainerData.cadence}rpm</span>
+      </div>
+
+      {/* === TOP CENTER: Notch area (empty) === */}
+      <div />
+
+      {/* === TOP RIGHT: Data === */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        padding: '0 15px',
+        gap: '12px',
+      }}>
+        <span>{trainerData.speed.toFixed(1)}km/h</span>
+        <span>{trainerData.distance.toFixed(2)}km</span>
+        <span>{formatTime(trainerData.elapsedTime)}</span>
+        <span style={{ opacity: 0.5 }}>
+          {isConnected ? (isSimulation ? '◐' : '●') : '○'}
+        </span>
+      </div>
+
+      {/* === BOTTOM: Road (spans all 3 columns) === */}
+      <div style={{
+        gridColumn: '1 / -1',
+        position: 'relative',
+      }}>
+        <Road roadY={10} laneGap={10} />
+        <Cyclist ref={cyclistRef} y={15} isMoving={isMoving} />
       </div>
     </div>
   );
+}
+
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 export default App;

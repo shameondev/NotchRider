@@ -1,6 +1,6 @@
 import type { TargetZone } from '../types/trainer';
 
-export type DriftState = 'inZone' | 'tooFast' | 'tooSlow' | 'offRoad';
+export type DriftState = 'waiting' | 'inZone' | 'tooFast' | 'tooSlow' | 'offRoad';
 
 export interface DriftResult {
   state: DriftState;
@@ -9,10 +9,20 @@ export interface DriftResult {
 
 const MAX_DRIFT = 30; // max pixels off road before "off road"
 
+// Minimum values to consider the ride "started"
+const MIN_POWER_TO_START = 10; // watts
+const MIN_CADENCE_TO_START = 20; // rpm
+
 export function calculateDrift(
   currentValue: number,
-  zone: TargetZone
+  zone: TargetZone,
+  isRideStarted: boolean = true
 ): DriftResult {
+  // If ride hasn't started, return waiting state
+  if (!isRideStarted) {
+    return { state: 'waiting', offset: 0 };
+  }
+
   if (currentValue >= zone.min && currentValue <= zone.max) {
     return { state: 'inZone', offset: 0 };
   }
@@ -38,4 +48,9 @@ export function calculateDrift(
       offset,
     };
   }
+}
+
+// Helper to check if ride has started based on trainer data
+export function isRideActive(power: number, cadence: number): boolean {
+  return power >= MIN_POWER_TO_START || cadence >= MIN_CADENCE_TO_START;
 }

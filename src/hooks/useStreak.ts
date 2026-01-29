@@ -12,6 +12,11 @@ export function updateStreak(
   driftState: DriftState,
   distanceDelta: number
 ): StreakState {
+  // Don't update streak when waiting at start
+  if (driftState === 'waiting') {
+    return prev;
+  }
+
   if (driftState === 'offRoad') {
     return {
       current: 0,

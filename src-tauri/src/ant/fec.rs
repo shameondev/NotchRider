@@ -269,6 +269,66 @@ impl Default for FecParser {
     }
 }
 
+impl FecParser {
+    /// Static method to parse a data page without needing accumulated state
+    /// (useful for one-shot parsing from lib.rs)
+    pub fn parse_data_page(data: &[u8]) -> Option<FecDataPage> {
+        if data.len() < 8 {
+            return None;
+        }
+
+        let page_number = data[0];
+
+        match page_number {
+            PAGE_GENERAL_FE_DATA => Self::parse_general_fe_data(data),
+            PAGE_SPECIFIC_TRAINER_DATA => Self::parse_specific_trainer_static(data),
+            PAGE_TRAINER_TORQUE => Self::parse_trainer_torque(data),
+            PAGE_MANUFACTURER_ID => Self::parse_manufacturer_id(data),
+            PAGE_PRODUCT_INFO => Self::parse_product_info(data),
+            PAGE_FE_CAPABILITIES => Self::parse_fe_capabilities(data),
+            PAGE_COMMAND_STATUS => Self::parse_command_status(data),
+            _ => Some(FecDataPage::Unknown {
+                page_number,
+                raw_data: data.to_vec(),
+            }),
+        }
+    }
+
+    /// Static version of parse_specific_trainer_data (without average power calculation)
+    fn parse_specific_trainer_static(data: &[u8]) -> Option<FecDataPage> {
+        let update_event_count = data[1];
+        let cadence = data[2];
+
+        let accumulated_power_lsb = data[3];
+        let accumulated_power_msb = data[4];
+        let accumulated_power = u16::from_le_bytes([accumulated_power_lsb, accumulated_power_msb]);
+
+        let power_lsb = data[5];
+        let power_msb_and_status = data[6];
+        let power_msb = power_msb_and_status & 0x0F;
+        let instantaneous_power = u16::from_le_bytes([power_lsb, power_msb]);
+
+        let trainer_status_bits = (power_msb_and_status >> 4) & 0x0F;
+        let flags = data[7];
+        let target_power_limits = flags & 0x07;
+
+        Some(FecDataPage::SpecificTrainer {
+            event_count: update_event_count,
+            cadence: if cadence == 0xFF { None } else { Some(cadence) },
+            accumulated_power,
+            instantaneous_power,
+            average_power: None, // Not calculated in static version
+            trainer_status: TrainerStatus::from_bits(trainer_status_bits),
+            target_power_limits,
+        })
+    }
+
+    /// Static method to update TrainerData from a data page
+    pub fn update_trainer_data(data: &mut TrainerData, page: &FecDataPage) {
+        page.update_trainer_data(data);
+    }
+}
+
 /// Trainer status decoded from Page 25
 #[derive(Debug, Clone, Default)]
 pub struct TrainerStatus {

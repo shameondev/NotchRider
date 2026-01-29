@@ -4,17 +4,25 @@ import { Cyclist } from './Cyclist';
 
 describe('Cyclist', () => {
   it('renders cyclist emoji', () => {
-    render(<Cyclist x={100} y={37} driftOffset={0} driftState="inZone" />);
+    render(<Cyclist y={32} />);
     expect(screen.getByText('🚴')).toBeInTheDocument();
   });
 
-  it('shows warning when tooFast', () => {
-    render(<Cyclist x={100} y={37} driftOffset={15} driftState="tooFast" />);
-    expect(screen.getByText(/WARNING/)).toBeInTheDocument();
+  it('renders at specified Y position', () => {
+    render(<Cyclist y={40} />);
+    const cyclist = screen.getByTestId('cyclist');
+    expect(cyclist).toHaveStyle({ top: '40px' });
   });
 
-  it('shows OFF ROAD when offRoad', () => {
-    render(<Cyclist x={100} y={37} driftOffset={30} driftState="offRoad" />);
-    expect(screen.getByText(/OFF ROAD/)).toBeInTheDocument();
+  it('shows reduced opacity when not moving', () => {
+    render(<Cyclist y={32} isMoving={false} />);
+    const cyclist = screen.getByTestId('cyclist');
+    expect(cyclist).toHaveStyle({ opacity: '0.6' });
+  });
+
+  it('shows full opacity when moving', () => {
+    render(<Cyclist y={32} isMoving={true} />);
+    const cyclist = screen.getByTestId('cyclist');
+    expect(cyclist).toHaveStyle({ opacity: '1' });
   });
 });

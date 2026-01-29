@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { updateStreak, StreakState } from './useStreak';
+import { updateStreak } from './useStreak';
+import type { StreakState } from './useStreak';
 
 describe('updateStreak', () => {
   it('increments streak when in zone', () => {
@@ -27,5 +28,11 @@ describe('updateStreak', () => {
     const result = updateStreak(prev, 'tooFast', 5);
     expect(result.current).toBe(105);
     expect(result.isActive).toBe(true);
+  });
+
+  it('does not change streak when waiting', () => {
+    const prev: StreakState = { current: 100, best: 200, isActive: true };
+    const result = updateStreak(prev, 'waiting', 10);
+    expect(result).toEqual(prev);
   });
 });

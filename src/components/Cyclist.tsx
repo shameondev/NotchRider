@@ -1,52 +1,28 @@
-import type { DriftState } from '../hooks/useZoneDrift';
+import { forwardRef } from 'react';
 
 interface CyclistProps {
-  x: number;
   y: number;
-  driftOffset: number;
-  driftState: DriftState;
+  isMoving?: boolean;
 }
 
-export function Cyclist({ x, y, driftOffset, driftState }: CyclistProps) {
-  const isWarning = driftState === 'tooFast' || driftState === 'tooSlow';
-  const isOffRoad = driftState === 'offRoad';
-
-  return (
-    <>
+export const Cyclist = forwardRef<HTMLDivElement, CyclistProps>(
+  function Cyclist({ y, isMoving = false }, ref) {
+    return (
       <div
+        ref={ref}
         data-testid="cyclist"
         style={{
           position: 'absolute',
-          left: `${x}px`,
-          top: `${y + driftOffset}px`,
-          fontSize: '20px',
-          transform: 'translateX(-50%) translateY(-50%)',
-          filter: isWarning
-            ? 'drop-shadow(0 0 8px var(--text-warning))'
-            : isOffRoad
-            ? 'drop-shadow(0 0 12px var(--text-danger))'
-            : 'none',
-          transition: 'top 0.3s ease-out, filter 0.2s',
+          left: 0,
+          top: y,
+          fontSize: '14px',
+          opacity: isMoving ? 1 : 0.6,
+          willChange: 'transform',
+          transform: 'translateX(0px) translateY(-50%)',
         }}
       >
         🚴
       </div>
-
-      {/* Warning indicator */}
-      {(isWarning || isOffRoad) && (
-        <div
-          style={{
-            position: 'absolute',
-            left: `${x}px`,
-            top: `${y + driftOffset + 25}px`,
-            transform: 'translateX(-50%)',
-            fontSize: '10px',
-            color: isOffRoad ? 'var(--text-danger)' : 'var(--text-warning)',
-          }}
-        >
-          ⚠️ {isOffRoad ? 'OFF ROAD!' : 'WARNING'}
-        </div>
-      )}
-    </>
-  );
-}
+    );
+  }
+);
