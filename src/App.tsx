@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Road } from './components/Road';
 import { Cyclist } from './components/Cyclist';
 import { HUD } from './components/HUD';
+import { StreakDisplay } from './components/StreakDisplay';
 import { getRoadY } from './hooks/useRoadPosition';
 import { calculateDrift } from './hooks/useZoneDrift';
 import { useTrainer } from './hooks/useTrainer';
+import { useStreak } from './hooks/useStreak';
 import type { TrainerData, TargetZone } from './types/trainer';
 
 function App() {
@@ -17,6 +19,8 @@ function App() {
   const [distance, setDistance] = useState(0);
 
   const { data: trainerData, isConnected, findDevice } = useTrainer();
+  const prevDistanceRef = useRef(0);
+  const { streak, update: updateStreak } = useStreak();
 
   const targetZone: TargetZone = {
     min: 140,
@@ -65,6 +69,15 @@ function App() {
     return () => clearInterval(interval);
   }, [screenWidth, isConnected, trainerData.speed]);
 
+  // Update streak based on drift state
+  useEffect(() => {
+    const distanceDelta = distance - prevDistanceRef.current;
+    if (distanceDelta > 0) {
+      updateStreak(drift.state, distanceDelta);
+    }
+    prevDistanceRef.current = distance;
+  }, [distance, drift.state, updateStreak]);
+
   const displayData: TrainerData = {
     ...trainerData,
     power: currentPower,
@@ -90,6 +103,7 @@ function App() {
         driftState={drift.state}
       />
       <HUD data={displayData} targetZone={targetZone} />
+      <StreakDisplay streak={streak} />
 
       {/* Connection status */}
       <div style={{
