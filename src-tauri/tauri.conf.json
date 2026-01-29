@@ -13,10 +13,16 @@
     "windows": [
       {
         "title": "NotchRider",
-        "width": 800,
-        "height": 600,
-        "resizable": true,
-        "fullscreen": false
+        "width": 1920,
+        "height": 148,
+        "x": 0,
+        "y": 0,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "resizable": false,
+        "skipTaskbar": true,
+        "visible": true
       }
     ],
     "security": {
