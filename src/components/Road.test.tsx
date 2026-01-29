@@ -16,4 +16,9 @@ describe('Road', () => {
     expect(screen.getByTestId('road-left')).toBeInTheDocument();
     expect(screen.getByTestId('road-right')).toBeInTheDocument();
   });
+
+  it('renders under-notch road segment', () => {
+    render(<Road notchWidth={200} notchX={860} />);
+    expect(screen.getByTestId('road-under-notch')).toBeInTheDocument();
+  });
 });
