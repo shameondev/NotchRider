@@ -4,6 +4,7 @@ import { Cyclist } from './components/Cyclist';
 import { HUD } from './components/HUD';
 import { getRoadY } from './hooks/useRoadPosition';
 import { calculateDrift } from './hooks/useZoneDrift';
+import { useTrainer } from './hooks/useTrainer';
 import type { TrainerData, TargetZone } from './types/trainer';
 
 function App() {
@@ -12,16 +13,10 @@ function App() {
   const notchX = screenWidth / 2;
 
   const [cyclistX, setCyclistX] = useState(100);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [distance, setDistance] = useState(0);
 
-  const [trainerData, setTrainerData] = useState<TrainerData>({
-    power: 148,
-    speed: 32.5,
-    cadence: 90,
-    heartRate: 142,
-    distance: 0,
-    elapsedTime: 0,
-    grade: 0,
-  });
+  const { data: trainerData, isConnected, findDevice } = useTrainer();
 
   const targetZone: TargetZone = {
     min: 140,
@@ -29,33 +24,56 @@ function App() {
     metric: 'power',
   };
 
+  // Try to find ANT+ device on mount
+  useEffect(() => {
+    findDevice();
+  }, [findDevice]);
+
+  // Simulated power for when not connected
+  const [simulatedPower, setSimulatedPower] = useState(150);
+  useEffect(() => {
+    if (!isConnected) {
+      const interval = setInterval(() => {
+        setSimulatedPower(130 + Math.floor(Math.random() * 50));
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, [isConnected]);
+
+  const currentPower = isConnected ? trainerData.power : simulatedPower;
+  const drift = calculateDrift(currentPower, targetZone);
+
+  // Animation loop
   useEffect(() => {
     const startTime = Date.now();
     const interval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      setElapsedTime(elapsed);
 
+      // Move cyclist based on speed (or simulated if not connected)
+      const speed = isConnected ? trainerData.speed : 30;
       setCyclistX(x => {
-        const newX = x + 2;
+        const pixelsPerSecond = speed * 2; // scale for visibility
+        const newX = x + pixelsPerSecond / 60;
         return newX > screenWidth ? 0 : newX;
       });
 
-      setTrainerData(d => ({
-        ...d,
-        distance: d.distance + 0.5,
-        elapsedTime: elapsed,
-        // Simulate power fluctuation (sometimes outside zone)
-        power: 130 + Math.floor(Math.random() * 50),
-      }));
+      // Accumulate distance
+      setDistance(d => d + (speed / 3.6) / 60); // m/s / 60fps
     }, 1000 / 60);
 
     return () => clearInterval(interval);
-  }, [screenWidth]);
+  }, [screenWidth, isConnected, trainerData.speed]);
+
+  const displayData: TrainerData = {
+    ...trainerData,
+    power: currentPower,
+    distance,
+    elapsedTime,
+    grade: 0,
+  };
 
   const cyclistY = getRoadY(cyclistX, notchX, notchWidth);
-  const currentValue = targetZone.metric === 'power'
-    ? trainerData.power
-    : trainerData.heartRate;
-  const drift = calculateDrift(currentValue, targetZone);
 
   return (
     <div style={{
@@ -71,7 +89,18 @@ function App() {
         driftOffset={drift.offset}
         driftState={drift.state}
       />
-      <HUD data={trainerData} targetZone={targetZone} />
+      <HUD data={displayData} targetZone={targetZone} />
+
+      {/* Connection status */}
+      <div style={{
+        position: 'absolute',
+        top: '5px',
+        right: '10px',
+        fontSize: '10px',
+        opacity: 0.5,
+      }}>
+        {isConnected ? '🟢 ANT+' : '🔴 Sim'}
+      </div>
     </div>
   );
 }

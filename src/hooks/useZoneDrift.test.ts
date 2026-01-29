@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateDrift, DriftState } from './useZoneDrift';
+import { calculateDrift } from './useZoneDrift';
 
 describe('calculateDrift', () => {
   const zone = { min: 140, max: 160, metric: 'power' as const };
