@@ -13,4 +13,9 @@ export default defineConfig({
   },
   // Environment variables prefixed with TAURI_ will be available
   envPrefix: ['VITE_', 'TAURI_'],
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.ts',
+  },
 })
