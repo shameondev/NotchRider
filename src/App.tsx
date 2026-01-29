@@ -3,6 +3,7 @@ import { Road } from './components/Road';
 import { Cyclist } from './components/Cyclist';
 import { HUD } from './components/HUD';
 import { getRoadY } from './hooks/useRoadPosition';
+import { calculateDrift } from './hooks/useZoneDrift';
 import type { TrainerData, TargetZone } from './types/trainer';
 
 function App() {
@@ -12,7 +13,6 @@ function App() {
 
   const [cyclistX, setCyclistX] = useState(100);
 
-  // Mock trainer data (will be replaced with real ANT+ data)
   const [trainerData, setTrainerData] = useState<TrainerData>({
     power: 148,
     speed: 32.5,
@@ -29,7 +29,6 @@ function App() {
     metric: 'power',
   };
 
-  // Animation loop
   useEffect(() => {
     const startTime = Date.now();
     const interval = setInterval(() => {
@@ -44,8 +43,8 @@ function App() {
         ...d,
         distance: d.distance + 0.5,
         elapsedTime: elapsed,
-        // Simulate power fluctuation
-        power: 140 + Math.floor(Math.random() * 30),
+        // Simulate power fluctuation (sometimes outside zone)
+        power: 130 + Math.floor(Math.random() * 50),
       }));
     }, 1000 / 60);
 
@@ -53,6 +52,10 @@ function App() {
   }, [screenWidth]);
 
   const cyclistY = getRoadY(cyclistX, notchX, notchWidth);
+  const currentValue = targetZone.metric === 'power'
+    ? trainerData.power
+    : trainerData.heartRate;
+  const drift = calculateDrift(currentValue, targetZone);
 
   return (
     <div style={{
@@ -62,7 +65,12 @@ function App() {
       position: 'relative',
     }}>
       <Road notchWidth={notchWidth} notchX={notchX} />
-      <Cyclist x={cyclistX} y={cyclistY} />
+      <Cyclist
+        x={cyclistX}
+        y={cyclistY}
+        driftOffset={drift.offset}
+        driftState={drift.state}
+      />
       <HUD data={trainerData} targetZone={targetZone} />
     </div>
   );
