@@ -1,7 +1,17 @@
 import { useEffect, useState, useCallback } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
+import { useListNavigation } from './hooks/useListNavigation';
 
-type PanelView = 'menu' | 'devices' | 'help' | 'trainings' | 'history' | 'settings' | 'confirm-stop';
+type PanelView = 'menu' | 'devices' | 'help' | 'trainings' | 'history' | 'settings' | 'about' | 'confirm-stop';
+
+const MENU_ITEMS = [
+  { id: 'devices', label: 'Devices' },
+  { id: 'trainings', label: 'Trainings' },
+  { id: 'history', label: 'History' },
+  { id: 'settings', label: 'Settings' },
+  { id: 'about', label: 'About' },
+] as const;
 
 export function Panel() {
   const [view, setView] = useState<PanelView>('menu');
@@ -53,15 +63,21 @@ export function Panel() {
 }
 
 function MenuView({ onNavigate }: { onNavigate: (view: string) => void }) {
+  const { selectedIndex } = useListNavigation({
+    items: MENU_ITEMS,
+    onSelect: (item) => onNavigate(item.id as PanelView),
+    onCancel: () => invoke('hide_panel'),
+  });
+
   return (
     <div>
-      <div style={{ cursor: 'pointer' }} onClick={() => onNavigate('devices')}>&gt; Devices</div>
-      <div style={{ opacity: 0.5 }}>  Trainings</div>
-      <div style={{ opacity: 0.5 }}>  History</div>
-      <div style={{ opacity: 0.5 }}>  Settings</div>
-      <div style={{ opacity: 0.5 }}>  About</div>
+      {MENU_ITEMS.map((item, index) => (
+        <div key={item.id} style={{ opacity: index === selectedIndex ? 1 : 0.5 }}>
+          {index === selectedIndex ? '> ' : '  '}{item.label}
+        </div>
+      ))}
       <div style={{ marginTop: '16px', opacity: 0.5 }}>
-        [Up/Down] Navigate  [Enter] Select
+        [↑↓] Navigate  [Enter] Select  [Esc] Close
       </div>
     </div>
   );
