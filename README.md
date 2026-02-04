@@ -1,98 +1,89 @@
-# NotchRider 🚴
+# NotchRider
 
-A minimalist terminal-aesthetic cycling game for macOS that lives in your menu bar and turns the MacBook notch into a game element.
+A minimalist indoor cycling companion for macOS. Think of it as a lightweight alternative to Zwift that lives in your menu bar.
 
 ```
-┌─────────────────────────────┬─────────┬─────────────────────────────┐
-│ ═══🚴═══════════════════╲   │ ▓▓▓▓▓▓▓ │   ╱═════════════════════════ │
-│  ♥89                     ╲  │ ▓NOTCH▓ │  ╱                   23:15  │
-│                           ╲ │ ▓▓▓▓▓▓▓ │ ╱                           │
-├────────────────────────────╲┴─────────┴╱────────────────────────────┤
-│  ⚡148W  [▲5%]  🎯150W     ═══🚴═══════              12.4km         │
-└──────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│  ♥ 142  ⚡ 165W  85rpm  │  ▓▓▓  │  28.5km/h  22.5km  ● 45:23  🟢 │
+├──────────────────────────┬───────┬───────────────────────────────┤
+│ ═══🚴═══════════════════ │ NOTCH │ ══════════════════════════════│
+└──────────────────────────┴───────┴───────────────────────────────┘
 ```
 
-## Concept
+## What is NotchRider?
 
-- **148px tall strip** that replaces your macOS menu bar
-- Cyclist rides left-to-right, **wrapping around the notch** like an island
-- Connect your **ANT+ smart trainer** and ride!
-- Keep your power/heart rate in the target zone to stay on the road
-- Watch Netflix while you train — the game takes minimal screen space
+NotchRider is a minimalist workout tracking app for indoor cycling. It connects to your ANT+ smart trainer and displays your workout data in a thin strip at the top of your screen — right next to the MacBook notch.
+
+**The key idea:** The app takes almost no screen space. You can watch Netflix, work, or browse the web while keeping an eye on your power, heart rate, and other metrics. No need for a dedicated screen or tablet.
 
 ## Features
 
-- 🖥️ **Notch-aware UI** — the road wraps around the MacBook notch
-- 🚴 **ANT+ FE-C support** — works with any compatible smart trainer
-- 🎯 **Zone training** — stay in your power/HR zone or drift off the road
-- 📊 **Minimal HUD** — power, heart rate, distance, time, grade
-- 🏆 **Streak system** — track your longest time in zone
+- **Minimal footprint** — 148px strip that replaces your menu bar
+- **ANT+ support** — connects to any FE-C compatible smart trainer
+- **Heart rate monitoring** — ANT+ HRM support
+- **Workout recording** — track and save your rides
+- **Keyboard-driven** — navigate with hotkeys, no mouse needed
+- **Terminal aesthetic** — clean monospace design
 
 ## Supported Hardware
 
-Any ANT+ FE-C compatible smart trainer:
-- Wahoo KICKR
-- Tacx Neo
-- Elite trainers
+Works with any ANT+ FE-C compatible trainer:
+- Wahoo KICKR, KICKR Core, KICKR Snap
+- Tacx Neo, Flux, Flow
+- Elite Direto, Suito, Zumo
 - CYCPLUS T2
-- Saris trainers
-- And more...
+- Saris H3
+- And many more...
 
-Requires an ANT+ USB dongle (e.g., ANT USBStick2).
+Requires an ANT+ USB dongle (e.g., Garmin ANT+ Stick, Dynastream ANT USBStick2).
+
+## Roadmap
+
+### Current
+- [x] ANT+ trainer connection
+- [x] Real-time power, speed, cadence
+- [x] Heart rate monitoring
+- [x] Keyboard navigation
+- [x] Workout recording
+
+### Planned
+- [ ] Strava/Garmin Connect export
+- [ ] FIT/TCX file export
+- [ ] Structured workouts
+- [ ] Workout import (ZWO, ERG, MRC)
+- [ ] Online multiplayer (ghost riders, group rides)
+- [ ] Resistance control for ERG mode
+- [ ] Apple Watch integration
 
 ## Tech Stack
 
-- **Tauri v2** — lightweight native app framework
-- **Rust** — backend, ANT+ communication
-- **React + TypeScript** — frontend UI
-- **Terminal aesthetic** — monospace fonts, minimal colors
+- **Tauri v2** — native app framework
+- **Rust** — backend, ANT+ protocol
+- **React + TypeScript** — frontend
+- **macOS** — primary platform (Windows support planned)
 
 ## Development
 
 ```bash
-# Prerequisites
-# - Rust & Cargo
-# - Node.js & pnpm
-# - Xcode Command Line Tools (macOS)
+# Prerequisites: Rust, Node.js, pnpm
 
-# Clone the repo
-git clone https://github.com/shameondev/NotchRider.git
+git clone https://github.com/user/NotchRider.git
 cd NotchRider
 
-# Install dependencies
 pnpm install
-
-# Run in dev mode
 pnpm tauri dev
-
-# Build for production
-pnpm tauri build
 ```
 
-## Roadmap
+## About This Project
 
-### MVP
-- [ ] Tauri app with borderless 148px window
-- [ ] ANT+ dongle connection
-- [ ] Read trainer data (power, speed, cadence)
-- [ ] Road rendering with notch wrap-around
-- [ ] Target zone + drift mechanics
-- [ ] Basic HUD
+This entire app is built with AI assistance. I develop it exclusively while training on my indoor bike — no coding happens off the saddle. It's an experiment in building useful software during workout sessions.
 
-### v2
-- [ ] Voice commands
-- [ ] Multiplayer (ghost riders)
-- [ ] Terrain with resistance control
-- [ ] Workout recording & export
+If you're interested in contributing or have ideas, feel free to open an issue or PR.
 
 ## License
 
-MIT License — see [LICENSE](LICENSE)
-
-## Contributing
-
-Contributions welcome! Please read [CLAUDE.md](CLAUDE.md) for development guidelines.
+MIT License
 
 ---
 
-*Made with ❤️ and 🚴 by [@shameondev](https://github.com/shameondev)*
+*Made while pedaling*
