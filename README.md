@@ -88,6 +88,4 @@ MIT License
 
 ---
 
-*Made with ❤️ and 🚴 by @shameondev*
-
-[Follow me on Strava](https://strava.app.link/yoxVmoFsu0b)
+*Made with <3 while pedaling with [Claude Code](https://claude.ai/code) by [@shameondev](https://strava.app.link/yoxVmoFsu0b)*
