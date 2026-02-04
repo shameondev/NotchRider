@@ -13,6 +13,7 @@
     "windows": [
       {
         "title": "NotchRider",
+        "label": "main",
         "width": 1920,
         "height": 148,
         "x": 0,
@@ -23,6 +24,21 @@
         "resizable": false,
         "skipTaskbar": true,
         "visible": true
+      },
+      {
+        "title": "NotchRider Panel",
+        "label": "panel",
+        "width": 640,
+        "height": 270,
+        "x": 0,
+        "y": 74,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "resizable": false,
+        "skipTaskbar": true,
+        "visible": false,
+        "url": "index.html#/panel"
       }
     ],
     "security": {

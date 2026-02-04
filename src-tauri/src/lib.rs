@@ -2,6 +2,7 @@ mod ant;
 
 use ant::channel::AntChannel;
 use ant::fec::FecParser;
+use ant::hrm::HrmParser;
 use ant::usb::AntUsb;
 use ant::TrainerData;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -15,9 +16,9 @@ use tauri::{Manager, State};
 struct AppState {
     ant: Mutex<AntUsb>,
     trainer_data: Mutex<TrainerData>,
-    channel: Mutex<Option<AntChannel>>,
+    fec_channel: Mutex<Option<AntChannel>>,  // Channel 0: FE-C (trainer)
+    hrm_channel: Mutex<Option<AntChannel>>,  // Channel 1: HRM (heart rate)
     connected: AtomicBool,
-    running: AtomicBool,
 }
 
 #[tauri::command]
@@ -45,22 +46,42 @@ fn connect_ant_device(state: State<AppState>) -> Result<bool, String> {
     // Open USB device
     ant.open()?;
 
-    // Initialize ANT+ channel for FE-C
-    let channel = AntChannel::new(0);
-    let init_sequence = channel.get_init_sequence();
+    // Initialize ANT+ channel 0 for FE-C (trainer)
+    let fec_channel = AntChannel::new(0);
+    let fec_init_sequence = fec_channel.get_init_sequence();
 
-    // Send initialization sequence with delays between messages
-    for msg in init_sequence {
+    // Send FE-C initialization sequence
+    for msg in fec_init_sequence {
         ant.write(&msg)?;
-        thread::sleep(Duration::from_millis(50)); // Allow device to process
+        thread::sleep(Duration::from_millis(50));
     }
 
-    // Store channel for later use
-    let mut ch = state.channel.lock().map_err(|e| e.to_string())?;
-    *ch = Some(channel);
-    state.connected.store(true, Ordering::SeqCst);
+    println!("ANT+ FE-C channel 0 initialized");
 
-    println!("ANT+ device connected and channel initialized");
+    // Initialize ANT+ channel 1 for HRM (heart rate monitor)
+    let hrm_channel = AntChannel::new(1);
+    let hrm_init_sequence = hrm_channel.get_hrm_init_sequence();
+
+    // Send HRM initialization sequence (no reset needed, network key already set)
+    for msg in hrm_init_sequence {
+        ant.write(&msg)?;
+        thread::sleep(Duration::from_millis(50));
+    }
+
+    println!("ANT+ HRM channel 1 initialized");
+
+    // Store channels
+    {
+        let mut ch = state.fec_channel.lock().map_err(|e| e.to_string())?;
+        *ch = Some(fec_channel);
+    }
+    {
+        let mut ch = state.hrm_channel.lock().map_err(|e| e.to_string())?;
+        *ch = Some(hrm_channel);
+    }
+
+    state.connected.store(true, Ordering::SeqCst);
+    println!("ANT+ device connected - FE-C and HRM channels ready");
     Ok(true)
 }
 
@@ -70,8 +91,16 @@ fn disconnect_ant_device(state: State<AppState>) -> Result<(), String> {
 
     let mut ant = state.ant.lock().map_err(|e| e.to_string())?;
 
-    // Close channel if open
-    if let Ok(mut ch) = state.channel.lock() {
+    // Close FE-C channel
+    if let Ok(mut ch) = state.fec_channel.lock() {
+        if let Some(channel) = ch.take() {
+            let close_msg = channel.close_channel();
+            let _ = ant.write(&close_msg);
+        }
+    }
+
+    // Close HRM channel
+    if let Ok(mut ch) = state.hrm_channel.lock() {
         if let Some(channel) = ch.take() {
             let close_msg = channel.close_channel();
             let _ = ant.write(&close_msg);
@@ -114,21 +143,67 @@ fn poll_trainer_data(state: State<AppState>) -> Result<Option<TrainerData>, Stri
     }
 
     // Parse received ANT+ message
-    if let Some((msg_id, _channel, data)) = AntChannel::parse_message(&buffer[..bytes_read]) {
+    if let Some((msg_id, channel, data)) = AntChannel::parse_message(&buffer[..bytes_read]) {
         // Check if it's broadcast data (0x4E)
         if msg_id == 0x4E && data.len() >= 8 {
-            // Parse FE-C data page
-            if let Some(page) = FecParser::parse_data_page(&data[1..9]) {
-                let mut trainer_data = state.trainer_data.lock().map_err(|e| e.to_string())?;
-                FecParser::update_trainer_data(&mut trainer_data, &page);
-                return Ok(Some(trainer_data.clone()));
+            let mut trainer_data = state.trainer_data.lock().map_err(|e| e.to_string())?;
+
+            match channel {
+                0 => {
+                    // Channel 0: FE-C (trainer) data
+                    if let Some(page) = FecParser::parse_data_page(&data[1..9]) {
+                        FecParser::update_trainer_data(&mut trainer_data, &page);
+                    }
+                }
+                1 => {
+                    // Channel 1: HRM (heart rate) data
+                    if let Some(hr) = HrmParser::parse_heart_rate(&data[1..9]) {
+                        trainer_data.heart_rate = hr;
+                    }
+                }
+                _ => {}
             }
+
+            return Ok(Some(trainer_data.clone()));
         }
     }
 
     // Return current data if parsing failed
     let data = state.trainer_data.lock().map_err(|e| e.to_string())?;
     Ok(Some(data.clone()))
+}
+
+#[tauri::command]
+fn show_panel(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("panel") {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn hide_panel(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("panel") {
+        window.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn toggle_panel(app: tauri::AppHandle) -> Result<bool, String> {
+    if let Some(window) = app.get_webview_window("panel") {
+        if window.is_visible().unwrap_or(false) {
+            window.hide().map_err(|e| e.to_string())?;
+            Ok(false)
+        } else {
+            window.show().map_err(|e| e.to_string())?;
+            window.set_focus().map_err(|e| e.to_string())?;
+            Ok(true)
+        }
+    } else {
+        Err("Panel window not found".to_string())
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -138,9 +213,9 @@ pub fn run() {
         .manage(AppState {
             ant: Mutex::new(AntUsb::new()),
             trainer_data: Mutex::new(TrainerData::default()),
-            channel: Mutex::new(None),
+            fec_channel: Mutex::new(None),
+            hrm_channel: Mutex::new(None),
             connected: AtomicBool::new(false),
-            running: AtomicBool::new(false),
         })
         .invoke_handler(tauri::generate_handler![
             find_ant_device,
@@ -151,6 +226,9 @@ pub fn run() {
             is_connected,
             poll_trainer_data,
             set_window_y,
+            show_panel,
+            hide_panel,
+            toggle_panel,
         ])
         .setup(|app| {
             let window = app
