@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useKeyboard } from './useKeyboard';
 
 interface UseListNavigationOptions<T> {
@@ -24,12 +24,16 @@ export function useListNavigation<T>({ items, onSelect, onCancel }: UseListNavig
     }
   }, [items, selectedIndex, onSelect]);
 
-  useKeyboard({
+  const noop = useCallback(() => {}, []);
+
+  const bindings = useMemo(() => ({
     'ArrowUp': moveUp,
     'ArrowDown': moveDown,
     'Enter': select,
-    'Escape': onCancel ?? (() => {}),
-  });
+    'Escape': onCancel ?? noop,
+  }), [moveUp, moveDown, select, onCancel, noop]);
+
+  useKeyboard(bindings);
 
   return { selectedIndex, setSelectedIndex };
 }
