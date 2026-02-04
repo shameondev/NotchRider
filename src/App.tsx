@@ -1,15 +1,18 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { emit } from '@tauri-apps/api/event';
 import { Road } from './components/Road';
 import { Cyclist } from './components/Cyclist';
 import { useTrainer } from './hooks/useTrainer';
+import { useKeyboard } from './hooks/useKeyboard';
+import { useAppState } from './hooks/useAppState';
 
 const APP_HEIGHT = 74;
 const NOTCH_WIDTH = 200;
 const TOP_HEIGHT = 37;
 const ROAD_HEIGHT = 37;
-const PIXELS_PER_KMH = 5;
 const HOVER_OFFSET = 65; // px to move down on hover
+// 1 screen width = 1 kilometer
 
 function App() {
   const screenWidth = window.innerWidth;
@@ -20,9 +23,60 @@ function App() {
   const animationRef = useRef<number>(0);
   const isVisibleRef = useRef(true);
   const isHoveredRef = useRef(false);
+  const speedRef = useRef(0);
 
   // Real trainer data from ANT+ or simulation
   const { data: trainerData, isConnected, isSimulation } = useTrainer();
+
+  // App state and panel management
+  const {
+    appState,
+    panelType,
+    startRecording,
+    pauseRecording,
+    resumeRecording,
+    stopRecording,
+    togglePanel,
+  } = useAppState();
+
+  // Keyboard bindings
+  const keyBindings = useMemo(() => ({
+    'Escape': () => togglePanel('menu'),
+    'd': () => togglePanel('devices'),
+    'D': () => togglePanel('devices'),
+    '?': () => togglePanel('help'),
+    'r': () => {
+      if (appState === 'idle') startRecording();
+    },
+    'R': () => {
+      if (appState === 'idle') startRecording();
+    },
+    ' ': () => {
+      if (appState === 'recording') pauseRecording();
+      else if (appState === 'paused') resumeRecording();
+    },
+    's': () => {
+      if (appState === 'recording' || appState === 'paused') stopRecording();
+    },
+    'S': () => {
+      if (appState === 'recording' || appState === 'paused') stopRecording();
+    },
+  }), [appState, togglePanel, startRecording, pauseRecording, resumeRecording, stopRecording]);
+
+  useKeyboard(keyBindings);
+
+  // Sync panel visibility with backend
+  useEffect(() => {
+    if (panelType === 'none') {
+      invoke('hide_panel').catch(console.error);
+    } else {
+      invoke('show_panel').catch(console.error);
+      emit('panel:set-view', panelType).catch(console.error);
+    }
+  }, [panelType]);
+
+  // Keep speed ref updated for animation loop
+  speedRef.current = trainerData.speed;
 
   const isMoving = trainerData.power > 0 || trainerData.cadence > 0;
 
@@ -84,23 +138,11 @@ function App() {
 
   // GPU-accelerated animation with requestAnimationFrame
   useEffect(() => {
-    let frameSkipCounter = 0;
-
     const animate = (timestamp: number) => {
       // Skip if not visible (battery saver)
       if (!isVisibleRef.current) {
         animationRef.current = requestAnimationFrame(animate);
         return;
-      }
-
-      // Throttle to 30fps when hovered (less important, save CPU)
-      if (isHoveredRef.current) {
-        frameSkipCounter++;
-        if (frameSkipCounter < 2) {
-          animationRef.current = requestAnimationFrame(animate);
-          return;
-        }
-        frameSkipCounter = 0;
       }
 
       if (!lastTimeRef.current) lastTimeRef.current = timestamp;
@@ -110,12 +152,14 @@ function App() {
       // Cap delta to avoid jumps after pause
       const cappedDelta = Math.min(delta, 0.1);
 
-      // Update position directly via transform (GPU)
-      const speed = trainerData.speed || 0;
+      // Update position: 1 screen width = 1 km
+      // speed is km/h, so pixels/sec = (speed / 3600) * screenWidth
+      const speed = speedRef.current || 0;
       if (speed > 0) {
-        positionRef.current += speed * PIXELS_PER_KMH * cappedDelta;
+        const pixelsPerSecond = (speed / 3600) * screenWidth;
+        positionRef.current += pixelsPerSecond * cappedDelta;
         if (positionRef.current > screenWidth) {
-          positionRef.current = 0;
+          positionRef.current = positionRef.current % screenWidth;
         }
       }
 
@@ -171,7 +215,11 @@ function App() {
       }}>
         <span>{trainerData.speed.toFixed(1)}km/h</span>
         <span>{trainerData.distance.toFixed(2)}km</span>
-        <span>{formatTime(trainerData.elapsedTime)}</span>
+        <span>
+          {appState === 'recording' && '● '}
+          {appState === 'paused' && '❚❚ '}
+          {formatTime(trainerData.elapsedTime)}
+        </span>
         <span style={{ opacity: 0.5 }}>
           {isConnected ? (isSimulation ? '◐' : '●') : '○'}
         </span>
@@ -184,6 +232,15 @@ function App() {
       }}>
         <Road roadY={10} laneGap={10} />
         <Cyclist ref={cyclistRef} y={15} isMoving={isMoving} />
+        <span style={{
+          position: 'absolute',
+          bottom: '4px',
+          left: '8px',
+          opacity: 0.3,
+          fontSize: '10px',
+        }}>
+          [?]
+        </span>
       </div>
     </div>
   );
