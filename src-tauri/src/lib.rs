@@ -184,8 +184,12 @@ fn show_panel(app: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn hide_panel(app: tauri::AppHandle) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("panel") {
-        window.hide().map_err(|e| e.to_string())?;
+    if let Some(panel) = app.get_webview_window("panel") {
+        panel.hide().map_err(|e| e.to_string())?;
+    }
+    // Return focus to main window
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.set_focus();
     }
     Ok(())
 }

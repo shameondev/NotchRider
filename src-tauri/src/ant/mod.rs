@@ -5,6 +5,7 @@
 
 pub mod channel;
 pub mod fec;
+pub mod hrm;
 pub mod usb;
 
 use serde::{Deserialize, Serialize};

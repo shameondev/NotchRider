@@ -1,5 +1,16 @@
 # CLAUDE.md
 
+## Session Start — READ THIS FIRST
+
+**At the start of every session, read `progress.md`** to restore context.
+
+The developer works on this project only during indoor cycling trainer sessions (~2 per week). Context is lost between sessions. The progress file tracks:
+- What was done last session
+- What needs testing or finishing
+- Current priorities
+
+---
+
 ## Repository Overview
 
 NotchRider is a minimalist terminal-aesthetic cycling game for macOS that lives in the menu bar and turns the MacBook notch into a game element. The cyclist rides along a road that wraps around the notch like an island.

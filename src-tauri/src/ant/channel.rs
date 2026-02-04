@@ -20,11 +20,17 @@ pub const MESG_RESPONSE_EVENT: u8 = 0x40;
 pub const MESG_CHANNEL_STATUS: u8 = 0x52;
 pub const MESG_CAPABILITIES: u8 = 0x54;
 
-// ANT+ FE-C specific constants
+// ANT+ Network Key (public, same for all ANT+ devices)
 const ANT_PLUS_NETWORK_KEY: [u8; 8] = [0xB9, 0xA5, 0x21, 0xFB, 0xBD, 0x72, 0xC3, 0x45];
+const ANT_PLUS_RF_FREQUENCY: u8 = 57; // 2457 MHz (base 2400 + 57)
+
+// ANT+ FE-C (Fitness Equipment) profile
 const FEC_DEVICE_TYPE: u8 = 17; // Fitness Equipment
-const FEC_RF_FREQUENCY: u8 = 57; // 2457 MHz (base 2400 + 57)
 const FEC_CHANNEL_PERIOD: u16 = 8192; // 4Hz message rate (32768/8192 = 4)
+
+// ANT+ HRM (Heart Rate Monitor) profile
+const HRM_DEVICE_TYPE: u8 = 120; // Heart Rate Monitor
+const HRM_CHANNEL_PERIOD: u16 = 8070; // ~4.06Hz message rate (32768/8070)
 
 // Channel types
 const CHANNEL_TYPE_SLAVE: u8 = 0x00; // Receive channel
@@ -190,7 +196,33 @@ impl AntChannel {
     pub fn set_channel_frequency(&self) -> Vec<u8> {
         Self::build_message(
             MESG_CHANNEL_FREQUENCY,
-            &[self.channel_number, FEC_RF_FREQUENCY],
+            &[self.channel_number, ANT_PLUS_RF_FREQUENCY],
+        )
+    }
+
+    /// Set channel ID for HRM device search
+    pub fn set_channel_id_hrm(&self) -> Vec<u8> {
+        Self::build_message(
+            MESG_CHANNEL_ID,
+            &[
+                self.channel_number,
+                (self.device_number & 0xFF) as u8,
+                (self.device_number >> 8) as u8,
+                HRM_DEVICE_TYPE,
+                self.transmission_type,
+            ],
+        )
+    }
+
+    /// Set channel period for HRM (~4.06Hz)
+    pub fn set_channel_period_hrm(&self) -> Vec<u8> {
+        Self::build_message(
+            MESG_CHANNEL_PERIOD,
+            &[
+                self.channel_number,
+                (HRM_CHANNEL_PERIOD & 0xFF) as u8,
+                (HRM_CHANNEL_PERIOD >> 8) as u8,
+            ],
         )
     }
 
@@ -241,6 +273,19 @@ impl AntChannel {
             self.set_channel_id(),
             self.set_channel_frequency(),
             self.set_channel_period(),
+            self.open_channel(),
+        ]
+    }
+
+    /// Get initialization sequence for HRM (no reset, assumes network key already set)
+    ///
+    /// Use this for a second channel when FE-C is already initialized
+    pub fn get_hrm_init_sequence(&self) -> Vec<Vec<u8>> {
+        vec![
+            self.assign_channel(),
+            self.set_channel_id_hrm(),
+            self.set_channel_frequency(),
+            self.set_channel_period_hrm(),
             self.open_channel(),
         ]
     }

@@ -10,7 +10,8 @@ const ANT_USB_EP_OUT: u8 = 0x01;
 const ANT_USB_EP_IN: u8 = 0x81;
 
 // Timeouts
-const USB_TIMEOUT: Duration = Duration::from_millis(1000);
+const USB_WRITE_TIMEOUT: Duration = Duration::from_millis(1000);
+const USB_READ_TIMEOUT: Duration = Duration::from_millis(50); // Short timeout for non-blocking reads
 
 pub struct AntUsb {
     context: Option<Context>,
@@ -118,7 +119,7 @@ impl AntUsb {
             .ok_or("Device not open. Call open() first.")?;
 
         handle
-            .write_bulk(ANT_USB_EP_OUT, data, USB_TIMEOUT)
+            .write_bulk(ANT_USB_EP_OUT, data, USB_WRITE_TIMEOUT)
             .map_err(|e| format!("USB write failed: {}", e))
     }
 
@@ -128,7 +129,7 @@ impl AntUsb {
             .as_ref()
             .ok_or("Device not open. Call open() first.")?;
 
-        match handle.read_bulk(ANT_USB_EP_IN, buffer, USB_TIMEOUT) {
+        match handle.read_bulk(ANT_USB_EP_IN, buffer, USB_READ_TIMEOUT) {
             Ok(bytes) => Ok(bytes),
             Err(rusb::Error::Timeout) => Ok(0), // No data available
             Err(e) => Err(format!("USB read failed: {}", e)),
