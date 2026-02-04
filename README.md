@@ -78,7 +78,9 @@ pnpm tauri dev
 
 This entire app is built with AI assistance. I develop it exclusively while training on my indoor bike — no coding happens off the saddle. It's an experiment in building useful software during workout sessions.
 
-If you're interested in contributing or have ideas, feel free to open an issue or PR.
+## Contributing
+
+Contributions welcome! Feel free to open an issue or PR.
 
 ## License
 
@@ -86,4 +88,6 @@ MIT License
 
 ---
 
-*Made while pedaling*
+*Made with ❤️ and 🚴 by @shameondev*
+
+[Follow me on Strava](https://strava.app.link/yoxVmoFsu0b)
