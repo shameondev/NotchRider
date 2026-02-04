@@ -58,22 +58,36 @@ Manual workout recording with keyboard-driven navigation, split-view panels, and
 
 ## Section 2: UI Components
 
-### Layout (split-view)
+### Layout (two windows)
+
+**Main Window:** Full width, 74px height, top of screen
+**Panel Window:** ~33% width, ~25% height, floating below main window (left side)
 
 ```
-Normal mode (100% game):
 ┌─────────────────────────────────────────────────────────────────┐
-│ TOP ROW: HUD data + status indicator                        │ 37px
+│  MAIN WINDOW (100% width, 74px)                                 │
+│  ♥ 142  ⚡ 165W  │ ▓▓▓ │  28.5km/h  🔴 45:23  🟢               │
 ├─────────────────────────────────────────────────────────────────┤
-│ BOTTOM ROW: Road + Cyclist + [?] hint                       │ 37px
+│  ═══🚴══════════════════════════════════════════════════════    │
 └─────────────────────────────────────────────────────────────────┘
-
-Panel open (40% panel + 60% game):
-┌──────────────┬──────────────────────────────────────────────────┐
-│  PANEL (40%) │              GAME AREA (60%)                     │
-│              │  continues running, compressed                   │
-└──────────────┴──────────────────────────────────────────────────┘
+┌─────────────────────┐
+│  PANEL WINDOW       │  ← floating, borderless
+│  (~33% width)       │     appears on Esc/D/?
+│  (~25% height)      │     same terminal aesthetic
+│                     │
+│  Content changes    │
+│  based on context   │
+│  (menu/devices/etc) │
+│                     │
+└─────────────────────┘
 ```
+
+**Panel Window properties:**
+- Borderless, transparent background
+- Always on top (like main window)
+- Position: x=0, y=74 (right below main window)
+- Size: ~640px width, ~270px height (adjustable)
+- Shows/hides based on hotkeys
 
 ### ANT+ Status Indicator (top right)
 
@@ -186,27 +200,28 @@ PAUSED ──(5 min)──► macOS notification: "Workout paused. Don't forget 
 
 ## Section 4: Devices Panel
 
-### UI
+### UI (in Panel Window)
 
 ```
-┌────────────────────────┬──────────────────────────────────────────┐
-│  DEVICES          [D]  │  ═══🚴═══════════════════════════════    │
-│  ───────────────────── │                                          │
-│  ANT+ Dongle      🟢   │  ♥ 142  ⚡ 165W  85rpm    28.5km/h  🟢   │
-│  ───────────────────── │                                          │
-│  Scanning...      🔄   │  ← auto-scan on panel open               │
-│                        │                                          │
-│  TRAINERS              │                                          │
-│  > [✓] CYCPLUS T2  🟢  │  ← Last Used, auto-connected             │
-│    [ ] Wahoo KICKR 🟡  │  ← found during scan                     │
-│                        │                                          │
-│  HEART RATE            │                                          │
-│    [✓] Garmin HRM  🟢  │  ← Last Used                             │
-│                        │                                          │
-│  ───────────────────── │                                          │
-│  [↑↓] [Space] Select   │                                          │
-│  [Esc] Close           │                                          │
-└────────────────────────┴──────────────────────────────────────────┘
+┌───────────────────────────────────┐
+│  DEVICES                     [D]  │
+│  ─────────────────────────────    │
+│  ANT+ Dongle                 🟢   │
+│  ─────────────────────────────    │
+│  Scanning...                 🔄   │
+│                                   │
+│  TRAINERS                         │
+│  > [✓] CYCPLUS T2            🟢   │  ← selected
+│    [ ] Wahoo KICKR           🟡   │
+│                                   │
+│  HEART RATE                       │
+│    [✓] Garmin HRM            🟢   │
+│    [ ] Wahoo TICKR           🔴   │
+│                                   │
+│  ─────────────────────────────    │
+│  [↑↓] Navigate  [Space] Select    │
+│  [Esc] Close                      │
+└───────────────────────────────────┘
 ```
 
 ### Device Categories
@@ -400,13 +415,14 @@ pub struct Workout {
 ### Phase 1: Keyboard Foundation
 1. **Keyboard event system** — global key listener in React
 2. **App state machine** — `idle | recording | paused | confirming`
-3. **Help panel** — `[?]` shows hotkeys
+3. **Help indicator** — `[?]` hint in main window
 
-### Phase 2: Panel System
-4. **Panel component** — base left panel component (40%)
-5. **Split-view layout** — game compression when panel open
-6. **Menu panel** — Esc → section list
-7. **Panel navigation** — ↑↓, Enter, Esc inside panels
+### Phase 2: Panel Window System
+4. **Panel window creation** — second Tauri window (Rust backend)
+5. **Panel window component** — React root for panel window
+6. **Window communication** — events between main and panel windows
+7. **Panel show/hide** — Esc/D/? toggle panel visibility
+8. **Panel navigation** — ↑↓, Enter, Esc inside panels
 
 ### Phase 3: Devices
 8. **ANT+ device scanning** — device discovery (backend)
