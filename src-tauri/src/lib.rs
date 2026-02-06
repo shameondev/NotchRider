@@ -1,4 +1,6 @@
 mod ant;
+mod fit;
+mod workout;
 
 use ant::channel::AntChannel;
 use ant::fec::FecParser;
@@ -10,6 +12,7 @@ use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 use tauri::{Manager, State};
+use workout::{WorkoutRecorder, WorkoutSummary};
 
 // macOS-specific imports are used inline in setup()
 
@@ -19,6 +22,7 @@ struct AppState {
     fec_channel: Mutex<Option<AntChannel>>,  // Channel 0: FE-C (trainer)
     hrm_channel: Mutex<Option<AntChannel>>,  // Channel 1: HRM (heart rate)
     connected: AtomicBool,
+    workout: Mutex<Option<WorkoutRecorder>>,
 }
 
 #[tauri::command]
@@ -210,6 +214,46 @@ fn toggle_panel(app: tauri::AppHandle) -> Result<bool, String> {
     }
 }
 
+#[tauri::command]
+fn start_workout(state: State<AppState>) -> Result<(), String> {
+    let mut workout = state.workout.lock().map_err(|e| e.to_string())?;
+    *workout = Some(WorkoutRecorder::new());
+    println!("Workout recording started");
+    Ok(())
+}
+
+#[tauri::command]
+fn add_workout_sample(state: State<AppState>) -> Result<(), String> {
+    let trainer_data = state.trainer_data.lock().map_err(|e| e.to_string())?.clone();
+    let mut workout = state.workout.lock().map_err(|e| e.to_string())?;
+    if let Some(ref mut recorder) = *workout {
+        recorder.add_sample(&trainer_data);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn pause_workout(state: State<AppState>, paused: bool) -> Result<(), String> {
+    let mut workout = state.workout.lock().map_err(|e| e.to_string())?;
+    if let Some(ref mut recorder) = *workout {
+        recorder.set_paused(paused);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn stop_workout(state: State<AppState>) -> Result<WorkoutSummary, String> {
+    let mut workout = state.workout.lock().map_err(|e| e.to_string())?;
+    match workout.take() {
+        Some(recorder) => {
+            let summary = recorder.save()?;
+            println!("Workout saved: {}", summary.file_path);
+            Ok(summary)
+        }
+        None => Err("No active workout".to_string()),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -220,6 +264,7 @@ pub fn run() {
             fec_channel: Mutex::new(None),
             hrm_channel: Mutex::new(None),
             connected: AtomicBool::new(false),
+            workout: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             find_ant_device,
@@ -233,6 +278,10 @@ pub fn run() {
             show_panel,
             hide_panel,
             toggle_panel,
+            start_workout,
+            add_workout_sample,
+            pause_workout,
+            stop_workout,
         ])
         .setup(|app| {
             let window = app

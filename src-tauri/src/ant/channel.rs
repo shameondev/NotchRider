@@ -340,7 +340,7 @@ mod tests {
         assert_eq!(msg_id, MESG_CHANNEL_FREQUENCY);
         assert_eq!(ch, 0);
         assert_eq!(data.len(), 2);
-        assert_eq!(data[1], FEC_RF_FREQUENCY);
+        assert_eq!(data[1], ANT_PLUS_RF_FREQUENCY);
     }
 
     #[test]

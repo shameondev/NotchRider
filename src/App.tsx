@@ -1,11 +1,12 @@
 import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { emit } from '@tauri-apps/api/event';
+import { emit, listen } from '@tauri-apps/api/event';
 import { Road } from './components/Road';
 import { Cyclist } from './components/Cyclist';
 import { useTrainer } from './hooks/useTrainer';
 import { useKeyboard } from './hooks/useKeyboard';
 import { useAppState } from './hooks/useAppState';
+import { useWorkout } from './hooks/useWorkout';
 
 const APP_HEIGHT = 74;
 const NOTCH_WIDTH = 200;
@@ -36,8 +37,33 @@ function App() {
     pauseRecording,
     resumeRecording,
     stopRecording,
+    confirmStop,
+    cancelStop,
     togglePanel,
   } = useAppState();
+
+  // Workout recording (FIT file)
+  const workout = useWorkout();
+
+  // Wrap state actions with workout backend calls
+  const handleStartRecording = useCallback(() => {
+    workout.start();
+    startRecording();
+  }, [workout, startRecording]);
+
+  const handlePauseRecording = useCallback(() => {
+    workout.pause();
+    pauseRecording();
+  }, [workout, pauseRecording]);
+
+  const handleResumeRecording = useCallback(() => {
+    workout.resume();
+    resumeRecording();
+  }, [workout, resumeRecording]);
+
+  const handleStopRecording = useCallback(() => {
+    stopRecording();
+  }, [stopRecording]);
 
   // Keyboard bindings
   const keyBindings = useMemo(() => ({
@@ -46,22 +72,22 @@ function App() {
     'D': () => togglePanel('devices'),
     '?': () => togglePanel('help'),
     'r': () => {
-      if (appState === 'idle') startRecording();
+      if (appState === 'idle') handleStartRecording();
     },
     'R': () => {
-      if (appState === 'idle') startRecording();
+      if (appState === 'idle') handleStartRecording();
     },
     ' ': () => {
-      if (appState === 'recording') pauseRecording();
-      else if (appState === 'paused') resumeRecording();
+      if (appState === 'recording') handlePauseRecording();
+      else if (appState === 'paused') handleResumeRecording();
     },
     's': () => {
-      if (appState === 'recording' || appState === 'paused') stopRecording();
+      if (appState === 'recording' || appState === 'paused') handleStopRecording();
     },
     'S': () => {
-      if (appState === 'recording' || appState === 'paused') stopRecording();
+      if (appState === 'recording' || appState === 'paused') handleStopRecording();
     },
-  }), [appState, togglePanel, startRecording, pauseRecording, resumeRecording, stopRecording]);
+  }), [appState, togglePanel, handleStartRecording, handlePauseRecording, handleResumeRecording, handleStopRecording]);
 
   useKeyboard(keyBindings);
 
@@ -74,6 +100,32 @@ function App() {
       emit('panel:set-view', panelType).catch(console.error);
     }
   }, [panelType]);
+
+  // Listen for recording commands from panel window
+  useEffect(() => {
+    const unsubs = [
+      listen('app:start-recording', () => {
+        if (appState === 'idle') handleStartRecording();
+      }),
+      listen('app:pause-recording', () => {
+        if (appState === 'recording') handlePauseRecording();
+      }),
+      listen('app:resume-recording', () => {
+        if (appState === 'paused') handleResumeRecording();
+      }),
+      listen('app:stop-recording', () => {
+        if (appState === 'recording' || appState === 'paused') handleStopRecording();
+      }),
+      listen('workout:confirmed', () => {
+        workout.stop();
+        confirmStop();
+      }),
+      listen('workout:cancelled', () => {
+        cancelStop();
+      }),
+    ];
+    return () => { unsubs.forEach(p => p.then(fn => fn())); };
+  }, [appState, workout, handleStartRecording, handlePauseRecording, handleResumeRecording, handleStopRecording, confirmStop, cancelStop]);
 
   // Keep speed ref updated for animation loop
   speedRef.current = trainerData.speed;
